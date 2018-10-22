@@ -3,8 +3,15 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "IntuneMAMAsyncResult.h"
 #import "IntuneMAMEnrollmentDelegate.h"
+
+/**
+ *  This is sent when the allowedAccounts array changes
+ *  the object sent is the NSArray UPN (or nil)
+ *  of the allowed users.
+ */
+extern NSString*_Nonnull const IntuneMAMAllowedAccountsDidChangeNotification;
+
 
 @interface IntuneMAMEnrollmentManager : NSObject
 
@@ -13,21 +20,25 @@
 /**
  *  This property should be to the delegate object created by the application.
  */
-@property (nonatomic,weak) id<IntuneMAMEnrollmentDelegate> delegate;
+@property (nonatomic,weak,nullable) id<IntuneMAMEnrollmentDelegate> delegate;
 
 /**
  *  Returns the instance of the IntuneMAMEnrollmentManager class
  *
  *  @return IntuneMAMEnrollmentManager shared instance
  */
-+ (IntuneMAMEnrollmentManager*) instance;
++ (IntuneMAMEnrollmentManager* _Nonnull) instance;
 
 /**
  *  Init is not available, please use instance:
  *
+ *  Xcode issues a warning if you try to override the annotation.
+ *  Note that we'll return nil if you use this
+ *  because you should not use this, you should use instance above.
+ *
  *  @return nil
  */
-- (id) init __attribute__((unavailable("Must use + (IntuneMAMEnrollmentManager*) instance")));
+- (id _Nonnull) init __attribute__((unavailable("Must use + (IntuneMAMEnrollmentManager*) instance")));
 
 /**
  *  This method will add the account to the list of registered accounts.
@@ -36,19 +47,33 @@
  *  24 hours.  
  *  If the application has already registered an account using this API, and calls
  *  it again, the SDK will ignore the request and output a warning.
+ *  Any SDK API that requires enrollment will not be valid until after
+ *  enrollment succeeds, for example AppConfig policy is not delivered until 
+ *  after an enrollment.  Use the IntuneMAMEnrollmentDelegate to determine
+ *  if the SDK has successfully enrolled and received policy.
+ *
+ *  @note Do not use this in an extension.  If you do so, we will return
+ *  IntuneMAMEnrollmentStatusUnsupportedAPI in the IntuneMAMEnrollmentDelegate.
  *
  *  @param identity The UPN of the account to be registered with the SDK
  */
-- (void)registerAndEnrollAccount:(NSString *)identity;
+- (void)registerAndEnrollAccount:(NSString *_Nonnull)identity;
 
 /**
  *  Creates an enrollment request which is started immediately.
  *  The user will be prompted to enter their credentials, 
  *  and we will attempt to enroll the user.
- 
+ *  Any SDK API that requires enrollment will not be valid until after
+ *  enrollment succeeds, for example AppConfig policy is not delivered until 
+ *  after an enrollment.  Use the IntuneMAMEnrollmentDelegate to determine
+ *  if the SDK has successfully enrolled and received policy.
+ *
+ *  @note Do not use this in an extension.  If you do so, we will return
+ *  IntuneMAMEnrollmentStatusUnsupportedAPI in the IntuneMAMEnrollmentDelegate.
+ *
  *  @param identity The UPN of the account to be logged in and enrolled.
  */
-- (void)loginAndEnrollAccount: (NSString *)identity;
+- (void)loginAndEnrollAccount:(NSString *_Nullable)identity;
 
 /**
  *  This method will remove the provided account from the list of
@@ -60,45 +85,38 @@
  *  the user is removed from the application (so that required AAD tokens are not purged
  *  before this method is called).
  *
+ *  @note Do not use this in an extension.  If you do so, we will return
+ *  IntuneMAMEnrollmentStatusUnsupportedAPI in the IntuneMAMEnrollmentDelegate.
+ *
  *  @param identity The UPN of the account to be removed.
  *  @param doWipe   If YES, a selective wipe if the account is un-enrolled
  */
-- (void)deRegisterAndUnenrollAccount:(NSString *)identity withWipe:(BOOL)doWipe;
+- (void)deRegisterAndUnenrollAccount:(NSString *_Nonnull)identity withWipe:(BOOL)doWipe;
 
 /**
  *  Returns a list of UPNs of account currently registered with the SDK.
  *
  *  @return Array containing UPNs of registered accounts
  */
-- (NSArray *)registeredAccounts;
+- (NSArray *_Nonnull)registeredAccounts;
 
-#pragma mark - Deprecated APIs
+/**
+ *  Returns the UPN of the currently enrolled user.  Returns
+ *  nil if the application is not currently enrolled.
+ *
+ *  @return UPN of the enrolled account
+ */
+- (NSString *_Nullable)enrolledAccount;
 
-// Deprecated APIs
-
-- (NSString *)devicePrimaryUser __attribute__((deprecated("This is method is no longer required.  This api will be removed in the December-2016 drop")));
-
-- (void) enrollApplication:(NSString *)identity withAsyncResult:(id<IntuneMAMAsyncResult>)result __attribute__((deprecated("Please use registerAndEnrollAccount:.  This api will be removed in the December-2016 drop")));
-
-- (void) unEnrollApplication:(NSString *)identity withAsyncResult:(id<IntuneMAMAsyncResult>)result __attribute__((deprecated("Please use deRegisterAndUnenrollAccount:.  This api will be removed in the December-2016 drop")));
-
-- (void)unEnrollApplicationAndSwitchPrimaryUserTo:(NSString *)identity withAsyncResult:(id<IntuneMAMAsyncResult>)result __attribute__((deprecated("This method is no longer required.  This api will be removed in the December-2016 drop")));
+/**
+ *  BETA: Please contact the MAM team before implementing this API
+ *  Returns the UPN(s) of the allowed accounts.  Returns
+ *  nil if there are no allowed accounts.
+ *  If there is an allowed account(s), only these account(s) should be allowed to sign into the app,
+ *  and if there any existing signed in users who are not UPN, those users should be signed out.
+ *
+ *  @return UPNs of the enrolled account or nil
+ */
+- (NSArray *_Nullable)allowedAccounts;
 
 @end
-
-#pragma mark - Deprecated Result Codes
-
-// Deprecated Result Codes
-extern id const IntuneMAMServiceEnrollmentSuccess;
-extern id const IntuneMAMServiceEnrollmentAuthorizationNeeded;
-extern id const IntuneMAMServiceEnrollmentFailed;
-extern id const IntuneMAMServiceEnrolledMDM;
-extern id const IntuneMAMServiceNotLicensed;
-extern id const IntuneMAMServiceTooManyRequests;
-extern id const IntuneMAMServiceUnEnrollmentSuccess;
-extern id const IntuneMAMServiceUnEnrollmentFailed;
-extern id const IntuneMAMServiceDisabled;
-extern id const IntuneMAMServiceRequestOngoing;
-extern id const IntuneMAMServiceWrongUser;
-extern id const IntuneMAMServiceAlreadyEnrolled;
-
